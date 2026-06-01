@@ -2,7 +2,7 @@ export const LENORMAND_CARDS = [
   "骑士",
   "四叶草",
   "船",
-  "房子",
+  "房屋",
   "树",
   "云",
   "蛇",
@@ -20,7 +20,7 @@ export const LENORMAND_CARDS = [
   "塔",
   "花园",
   "山",
-  "十字路口",
+  "路径",
   "老鼠",
   "心",
   "戒指",
@@ -28,18 +28,54 @@ export const LENORMAND_CARDS = [
   "信",
   "男士",
   "女士",
-  "百合",
+  "百合花",
   "太阳",
   "月亮",
   "钥匙",
   "鱼",
   "锚",
-  "十字架"
+  "十字架",
+  "灵体",
+  "香炉",
+  "床",
+  "即逝"
 ] as const;
 
 export type LenormandCard = (typeof LENORMAND_CARDS)[number];
 
 const cardLookup = new Map<string, LenormandCard>();
+
+const CARD_ALIASES: Record<string, LenormandCard> = {
+  骑士牌: "骑士",
+  四叶草牌: "四叶草",
+  船牌: "船",
+  房子: "房屋",
+  房子牌: "房屋",
+  房屋牌: "房屋",
+  十字路口: "路径",
+  路口: "路径",
+  岔路: "路径",
+  男: "男士",
+  男人: "男士",
+  男性: "男士",
+  男牌: "男士",
+  女: "女士",
+  女人: "女士",
+  女性: "女士",
+  女牌: "女士",
+  百合: "百合花",
+  百合牌: "百合花",
+  床牌: "床",
+  床铺: "床",
+  灵体牌: "灵体",
+  靈體: "灵体",
+  靈體牌: "灵体",
+  即逝牌: "即逝",
+  稍纵即逝: "即逝",
+  香炉牌: "香炉",
+  香爐: "香炉",
+  香爐牌: "香炉"
+};
 
 LENORMAND_CARDS.forEach((card, index) => {
   const number = String(index + 1).padStart(2, "0");
@@ -57,8 +93,12 @@ LENORMAND_CARDS.forEach((card, index) => {
   ].forEach((alias) => cardLookup.set(normalizeToken(alias), card));
 });
 
+Object.entries(CARD_ALIASES).forEach(([alias, card]) => {
+  cardLookup.set(normalizeToken(alias), card);
+});
+
 export function normalizeToken(value: string) {
-  return value.trim().replace(/\s+/g, "").replace(/[.。]/g, ".");
+  return value.trim().toLowerCase().replace(/\s+/g, "").replace(/[.。]/g, ".");
 }
 
 export function normalizeCardName(value: string): LenormandCard | null {

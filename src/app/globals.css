@@ -134,6 +134,14 @@ select {
   color: var(--ink);
 }
 
+.button.is-filter-active {
+  border-color: rgba(143, 241, 223, 0.62);
+  background:
+    linear-gradient(135deg, rgba(143, 241, 223, 0.22), rgba(215, 200, 255, 0.16)),
+    rgba(255, 249, 255, 0.09);
+  color: var(--ink);
+}
+
 .button.danger {
   border-color: rgba(255, 155, 204, 0.5);
   background: linear-gradient(135deg, rgba(255, 155, 204, 0.48), rgba(45, 37, 107, 0.82));
@@ -164,6 +172,11 @@ select {
   box-shadow:
     0 0 0 3px rgba(143, 241, 223, 0.16),
     0 0 28px rgba(143, 241, 223, 0.14);
+}
+
+.field option {
+  background: #fff;
+  color: #151329;
 }
 
 .label {

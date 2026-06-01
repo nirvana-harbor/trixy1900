@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { readDefaultCardProfiles } from "@/lib/card-profile-seed";
 import { todayKey } from "@/lib/dates";
 import { isPublishableOption, type LenormandCard } from "@/lib/lenormand";
 import {
@@ -55,6 +56,27 @@ export type KnowledgeEntry = {
   type: string;
   title: string;
   body: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CardProfile = {
+  card_number: number;
+  card_name: string;
+  review_status: string;
+  polarity: string;
+  core_meaning: string;
+  person_image: string;
+  work: string;
+  love: string;
+  health: string;
+  money: string;
+  timing: string;
+  advice: string;
+  objects_places: string;
+  review_notes: string;
+  quiz_prompt: string;
+  quiz_answer: string;
   created_at: string;
   updated_at: string;
 };
@@ -143,6 +165,27 @@ function migrate(database: DatabaseSync) {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS card_profiles (
+      card_number INTEGER PRIMARY KEY CHECK (card_number BETWEEN 1 AND 42),
+      card_name TEXT NOT NULL,
+      review_status TEXT NOT NULL DEFAULT '待校对',
+      polarity TEXT NOT NULL DEFAULT '',
+      core_meaning TEXT NOT NULL DEFAULT '',
+      person_image TEXT NOT NULL DEFAULT '',
+      work TEXT NOT NULL DEFAULT '',
+      love TEXT NOT NULL DEFAULT '',
+      health TEXT NOT NULL DEFAULT '',
+      money TEXT NOT NULL DEFAULT '',
+      timing TEXT NOT NULL DEFAULT '',
+      advice TEXT NOT NULL DEFAULT '',
+      objects_places TEXT NOT NULL DEFAULT '',
+      review_notes TEXT NOT NULL DEFAULT '',
+      quiz_prompt TEXT NOT NULL DEFAULT '',
+      quiz_answer TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS topic_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nickname TEXT NOT NULL DEFAULT '匿名来访者',
@@ -152,6 +195,7 @@ function migrate(database: DatabaseSync) {
   `);
   ensureDailyReadingsColumns(database);
   ensureReadingOptionsSchema(database);
+  seedCardProfiles(database);
 }
 
 function tableColumns(database: DatabaseSync, tableName: string) {
@@ -542,6 +586,118 @@ export function createKnowledgeEntry(params: { type: string; title: string; body
 
 export function deleteKnowledgeEntry(id: number) {
   getDb().prepare("DELETE FROM knowledge_entries WHERE id = ?").run(id);
+}
+
+function seedCardProfiles(database: DatabaseSync) {
+  const count = row<{ count: number }>(
+    database.prepare("SELECT COUNT(*) AS count FROM card_profiles").get()
+  )?.count;
+  if (count && count > 0) {
+    return;
+  }
+
+  const insert = database.prepare(
+    `INSERT OR IGNORE INTO card_profiles (
+      card_number,
+      card_name,
+      review_status,
+      polarity,
+      core_meaning,
+      person_image,
+      work,
+      love,
+      health,
+      money,
+      timing,
+      advice,
+      objects_places,
+      review_notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  readDefaultCardProfiles().forEach((profile) => {
+    insert.run(
+      profile.cardNumber,
+      profile.cardName,
+      profile.reviewStatus,
+      profile.polarity,
+      profile.coreMeaning,
+      profile.personImage,
+      profile.work,
+      profile.love,
+      profile.health,
+      profile.money,
+      profile.timing,
+      profile.advice,
+      profile.objectsPlaces,
+      profile.reviewNotes
+    );
+  });
+}
+
+export function listCardProfiles() {
+  return rows<CardProfile>(
+    getDb().prepare("SELECT * FROM card_profiles ORDER BY card_number").all()
+  );
+}
+
+export function updateCardProfile(params: {
+  cardNumber: number;
+  cardName: string;
+  reviewStatus: string;
+  polarity: string;
+  coreMeaning: string;
+  personImage: string;
+  work: string;
+  love: string;
+  health: string;
+  money: string;
+  timing: string;
+  advice: string;
+  objectsPlaces: string;
+  reviewNotes: string;
+  quizPrompt: string;
+  quizAnswer: string;
+}) {
+  getDb()
+    .prepare(
+      `UPDATE card_profiles
+        SET card_name = ?,
+            review_status = ?,
+            polarity = ?,
+            core_meaning = ?,
+            person_image = ?,
+            work = ?,
+            love = ?,
+            health = ?,
+            money = ?,
+            timing = ?,
+            advice = ?,
+            objects_places = ?,
+            review_notes = ?,
+            quiz_prompt = ?,
+            quiz_answer = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE card_number = ?`
+    )
+    .run(
+      params.cardName,
+      params.reviewStatus,
+      params.polarity,
+      params.coreMeaning,
+      params.personImage,
+      params.work,
+      params.love,
+      params.health,
+      params.money,
+      params.timing,
+      params.advice,
+      params.objectsPlaces,
+      params.reviewNotes,
+      params.quizPrompt,
+      params.quizAnswer,
+      params.cardNumber
+    );
 }
 
 export function createTopicRequest(params: { nickname: string; suggestion: string }) {

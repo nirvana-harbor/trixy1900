@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus, Trash2 } from "lucide-react";
 import { createKnowledgeAction, deleteKnowledgeAction } from "@/app/admin/actions";
 import { requireAdmin } from "@/lib/auth";
 import { listKnowledgeEntries } from "@/lib/db";
@@ -19,10 +19,16 @@ export default async function KnowledgePage({
 
   return (
     <main className="shell py-8">
-      <Link href="/admin" className="button secondary mb-6 w-fit">
-        <ArrowLeft size={18} />
-        返回后台
-      </Link>
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Link href="/admin" className="button secondary w-fit">
+          <ArrowLeft size={18} />
+          返回后台
+        </Link>
+        <Link href="/admin/cards" className="button secondary w-fit">
+          <BookOpen size={18} />
+          牌义校对
+        </Link>
+      </div>
       <h1 className="mb-3 text-3xl font-black">雷诺曼知识库</h1>
       <p className="mb-6 max-w-3xl leading-8 text-[var(--muted)]">
         这里的内容会和 docs/knowledge 里的 Markdown 一起提供给 AI，用来贴近你的牌义体系和写作风格。

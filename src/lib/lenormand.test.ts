@@ -6,6 +6,15 @@ describe("lenormand card parsing", () => {
     expect(normalizeCardName("骑士")).toBe("骑士");
     expect(normalizeCardName("01 骑士")).toBe("骑士");
     expect(normalizeCardName("24心")).toBe("心");
+    expect(normalizeCardName("房子")).toBe("房屋");
+    expect(normalizeCardName("房屋牌")).toBe("房屋");
+    expect(normalizeCardName("十字路口")).toBe("路径");
+    expect(normalizeCardName("百合")).toBe("百合花");
+    expect(normalizeCardName("37 灵体")).toBe("灵体");
+    expect(normalizeCardName("39 床")).toBe("床");
+    expect(normalizeCardName("灵体牌")).toBe("灵体");
+    expect(normalizeCardName("稍纵即逝")).toBe("即逝");
+    expect(normalizeCardName("香爐")).toBe("香炉");
   });
 
   it("accepts variable spreads from 1 to 9 cards", () => {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import {
+  BookOpen,
   Check,
   LogOut,
   MessageSquareText,
@@ -72,6 +73,10 @@ export default async function AdminPage({
           <h1 className="mt-1 text-3xl font-black">每日占卜后台</h1>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/admin/cards" className="button secondary">
+            <BookOpen size={18} />
+            牌义校对
+          </Link>
           <Link href="/admin/knowledge" className="button secondary">
             <PencilLine size={18} />
             知识库

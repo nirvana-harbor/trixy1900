@@ -14,7 +14,9 @@ import {
   unpublishReading,
   updateReadingOption,
   createTopicRequest,
-  listTopicRequests
+  listTopicRequests,
+  listCardProfiles,
+  updateCardProfile
 } from "@/lib/db";
 
 let dir = "";
@@ -124,5 +126,43 @@ describe("topic requests", () => {
     expect(requests).toHaveLength(1);
     expect(requests[0].nickname).toBe("小月");
     expect(requests[0].suggestion).toContain("暧昧对象");
+  });
+});
+
+describe("card profile review table", () => {
+  it("seeds editable card profiles from the knowledge markdown", () => {
+    const cards = listCardProfiles();
+
+    expect(cards).toHaveLength(42);
+    expect(cards[0].card_name).toBe("骑士");
+    expect(cards.find((card) => card.card_number === 5)?.core_meaning).toContain("家族");
+    expect(cards.find((card) => card.card_number === 41)?.card_name).toContain("待确认");
+  });
+
+  it("stores review edits used by the admin card review page", () => {
+    listCardProfiles();
+    updateCardProfile({
+      cardNumber: 5,
+      cardName: "树",
+      reviewStatus: "已确认",
+      polarity: "中性牌",
+      coreMeaning: "家族、健康、灵媒。",
+      personImage: "健康的人。",
+      work: "医药业。",
+      love: "短时间内断不掉。",
+      health: "素食、平静。",
+      money: "长期投资。",
+      timing: "时间久。",
+      advice: "保持耐心。",
+      objectsPlaces: "族谱、森林。",
+      reviewNotes: "已按口述校对。",
+      quizPrompt: "树牌是否马上结束？",
+      quizAnswer: "否。"
+    });
+
+    const tree = listCardProfiles().find((card) => card.card_number === 5);
+
+    expect(tree?.review_status).toBe("已确认");
+    expect(tree?.quiz_answer).toBe("否。");
   });
 });

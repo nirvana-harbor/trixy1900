@@ -16,6 +16,7 @@ import {
   setReadingOptionCount,
   setReadingTopic,
   unpublishReading,
+  updateCardProfile,
   updateReadingOption
 } from "@/lib/db";
 import { generateReadingDraft, generateTopicSuggestions } from "@/lib/ai";
@@ -27,7 +28,8 @@ function adminRedirect(path = "/admin", message?: string): never {
   if (!message) {
     redirect(path);
   }
-  redirect(`${path}?message=${encodeURIComponent(message)}`);
+  const separator = path.includes("?") ? "&" : "?";
+  redirect(`${path}${separator}message=${encodeURIComponent(message)}`);
 }
 
 function optionKeyFromForm(formData: FormData) {
@@ -235,4 +237,108 @@ export async function deleteKnowledgeAction(formData: FormData) {
   }
   revalidatePath("/admin/knowledge");
   adminRedirect("/admin/knowledge", "知识条目已删除。");
+}
+
+export async function updateCardProfileAction(formData: FormData) {
+  await requireAdmin();
+  const cardNumber = Number(formData.get("cardNumber"));
+  const returnFilter = sanitizeCardFilter(formData);
+  if (!Number.isInteger(cardNumber) || cardNumber < 1 || cardNumber > 42) {
+    adminRedirect("/admin/cards", "牌号无效。");
+  }
+
+  updateCardProfile({
+    cardNumber,
+    cardName: String(formData.get("cardName") || "").trim() || `第 ${cardNumber} 张`,
+    reviewStatus: String(formData.get("reviewStatus") || "待校对").trim(),
+    polarity: String(formData.get("polarity") || "").trim(),
+    coreMeaning: String(formData.get("coreMeaning") || "").trim(),
+    personImage: String(formData.get("personImage") || "").trim(),
+    work: String(formData.get("work") || "").trim(),
+    love: String(formData.get("love") || "").trim(),
+    health: String(formData.get("health") || "").trim(),
+    money: String(formData.get("money") || "").trim(),
+    timing: String(formData.get("timing") || "").trim(),
+    advice: String(formData.get("advice") || "").trim(),
+    objectsPlaces: String(formData.get("objectsPlaces") || "").trim(),
+    reviewNotes: String(formData.get("reviewNotes") || "").trim(),
+    quizPrompt: String(formData.get("quizPrompt") || "").trim(),
+    quizAnswer: String(formData.get("quizAnswer") || "").trim()
+  });
+
+  revalidatePath("/admin/cards");
+  adminRedirect(cardFilterPath(returnFilter), `${String(cardNumber).padStart(2, "0")} 号牌已保存。`);
+}
+
+function sanitizeCardFilter(formData: FormData) {
+  const filter = String(formData.get("returnFilter") || "pending");
+  return ["pending", "question", "confirmed", "unused", "all"].includes(filter)
+    ? filter
+    : "pending";
+}
+
+function cardFilterPath(filter: string) {
+  return filter === "pending" ? "/admin/cards" : `/admin/cards?filter=${encodeURIComponent(filter)}`;
+}
+
+function profileString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export async function importCardProfilesAction(formData: FormData) {
+  await requireAdmin();
+  const returnFilter = sanitizeCardFilter(formData);
+  const rawJson = String(formData.get("profilesJson") || "").trim();
+  if (!rawJson) {
+    adminRedirect(cardFilterPath(returnFilter), "请先粘贴导出的 JSON。");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawJson);
+  } catch {
+    adminRedirect(cardFilterPath(returnFilter), "JSON 格式不正确，无法导入。");
+  }
+
+  const source = parsed as { cards?: unknown };
+  const cards = Array.isArray(source.cards) ? source.cards : Array.isArray(parsed) ? parsed : [];
+  let importedCount = 0;
+
+  for (const item of cards) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const record = item as Record<string, unknown>;
+    const cardNumber = Number(record.card_number ?? record.cardNumber);
+    if (!Number.isInteger(cardNumber) || cardNumber < 1 || cardNumber > 42) {
+      continue;
+    }
+
+    updateCardProfile({
+      cardNumber,
+      cardName: profileString(record.card_name ?? record.cardName) || `第 ${cardNumber} 张`,
+      reviewStatus: profileString(record.review_status ?? record.reviewStatus) || "待校对",
+      polarity: profileString(record.polarity),
+      coreMeaning: profileString(record.core_meaning ?? record.coreMeaning),
+      personImage: profileString(record.person_image ?? record.personImage),
+      work: profileString(record.work),
+      love: profileString(record.love),
+      health: profileString(record.health),
+      money: profileString(record.money),
+      timing: profileString(record.timing),
+      advice: profileString(record.advice),
+      objectsPlaces: profileString(record.objects_places ?? record.objectsPlaces),
+      reviewNotes: profileString(record.review_notes ?? record.reviewNotes),
+      quizPrompt: profileString(record.quiz_prompt ?? record.quizPrompt),
+      quizAnswer: profileString(record.quiz_answer ?? record.quizAnswer)
+    });
+    importedCount += 1;
+  }
+
+  if (importedCount === 0) {
+    adminRedirect(cardFilterPath(returnFilter), "没有找到可导入的牌义记录。");
+  }
+
+  revalidatePath("/admin/cards");
+  adminRedirect(cardFilterPath(returnFilter), `已导入 ${importedCount} 张牌义。`);
 }
