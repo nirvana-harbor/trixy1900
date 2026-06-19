@@ -6,9 +6,10 @@ import { listCardProfiles, type CardProfile } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const reviewStatuses = ["待校对", "有疑问", "已确认", "暂不使用"];
+const reviewStatuses = ["AI草稿", "待校对", "有疑问", "已确认", "暂不使用"];
 const cardFilters = [
   { key: "pending", label: "待处理" },
+  { key: "draft", label: "AI草稿" },
   { key: "question", label: "有疑问" },
   { key: "confirmed", label: "已确认" },
   { key: "unused", label: "暂不使用" },
@@ -32,6 +33,9 @@ function statusClass(status: string) {
   if (status.includes("已确认")) {
     return "border-[rgba(143,241,223,0.38)] bg-[rgba(143,241,223,0.12)] text-[var(--jade)]";
   }
+  if (status.includes("AI草稿")) {
+    return "border-[rgba(215,200,255,0.42)] bg-[rgba(215,200,255,0.12)] text-[var(--amber)]";
+  }
   if (status.includes("疑问")) {
     return "border-[rgba(255,155,204,0.38)] bg-[rgba(255,155,204,0.12)] text-[var(--rose)]";
   }
@@ -48,6 +52,9 @@ function visibleCardsForFilter(cards: CardProfile[], filter: string) {
   }
   if (filter === "question") {
     return cards.filter((card) => card.review_status === "有疑问");
+  }
+  if (filter === "draft") {
+    return cards.filter((card) => card.review_status === "AI草稿");
   }
   if (filter === "confirmed") {
     return cards.filter((card) => card.review_status === "已确认");
@@ -94,11 +101,13 @@ export default async function AdminCardsPage({
   const params = await searchParams;
   const cards = listCardProfiles();
   const confirmedCount = cards.filter((card) => card.review_status === "已确认").length;
+  const confirmedPercent = cards.length > 0 ? Math.round((confirmedCount / cards.length) * 100) : 0;
   const activeFilter = params.filter || (params.show === "all" ? "all" : "pending");
   const safeFilter = cardFilters.some((filter) => filter.key === activeFilter) ? activeFilter : "pending";
   const visibleCards = visibleCardsForFilter(cards, safeFilter);
   const counts = {
     pending: visibleCardsForFilter(cards, "pending").length,
+    draft: visibleCardsForFilter(cards, "draft").length,
     question: visibleCardsForFilter(cards, "question").length,
     confirmed: confirmedCount,
     unused: visibleCardsForFilter(cards, "unused").length,
@@ -139,13 +148,25 @@ export default async function AdminCardsPage({
           <div>
             <h2 className="text-xl font-black">怎么校对</h2>
             <p className="mt-1 text-sm leading-7 text-[var(--muted)]">
-              下拉选择“已确认/有疑问/待校对”，正文框里直接改。你也可以在“校对题”里写判断题或选择题，例如：
+              AI草稿已经可用于生成解析；你后续只需要慢慢把它们校对成“已确认”。正文框里可以直接改，你也可以在“校对题”里写判断题或选择题，例如：
               “树牌是不是马上结束？答案：不是，它是缓慢发展、短时间断不掉。”
             </p>
           </div>
           <span className="rounded-lg border border-[var(--line)] bg-white/5 px-3 py-2 text-sm font-black text-[var(--muted)]">
             已确认 {confirmedCount} / {cards.length} · 当前显示 {visibleCards.length}
           </span>
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between text-xs font-bold text-[var(--muted)]">
+            <span>校对进度</span>
+            <span>{confirmedPercent}%</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full border border-[var(--line)] bg-white/5">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,var(--jade),var(--rose),var(--amber))]"
+              style={{ width: `${confirmedPercent}%` }}
+            />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {cardFilters.map((filter) => (

@@ -38,7 +38,9 @@ export const LENORMAND_CARDS = [
   "灵体",
   "香炉",
   "床",
-  "即逝"
+  "即逝",
+  "扩展牌41",
+  "扩展牌42"
 ] as const;
 
 export type LenormandCard = (typeof LENORMAND_CARDS)[number];
@@ -74,13 +76,21 @@ const CARD_ALIASES: Record<string, LenormandCard> = {
   稍纵即逝: "即逝",
   香炉牌: "香炉",
   香爐: "香炉",
-  香爐牌: "香炉"
+  香爐牌: "香炉",
+  未知扩展牌一: "扩展牌41",
+  待确认扩展牌一: "扩展牌41",
+  第41张扩展牌: "扩展牌41",
+  未知扩展牌二: "扩展牌42",
+  待确认扩展牌二: "扩展牌42",
+  第42张扩展牌: "扩展牌42"
 };
 
 LENORMAND_CARDS.forEach((card, index) => {
   const number = String(index + 1).padStart(2, "0");
   const simpleNumber = String(index + 1);
   [
+    number,
+    simpleNumber,
     card,
     `${number}${card}`,
     `${simpleNumber}${card}`,

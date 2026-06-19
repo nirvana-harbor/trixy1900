@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { buildKnowledgeContext } from "@/lib/content";
 import {
   ensureReading,
   getReading,
@@ -135,8 +136,22 @@ describe("card profile review table", () => {
 
     expect(cards).toHaveLength(42);
     expect(cards[0].card_name).toBe("骑士");
+    expect(cards[0].review_status).toBe("已确认");
     expect(cards.find((card) => card.card_number === 5)?.core_meaning).toContain("家族");
-    expect(cards.find((card) => card.card_number === 41)?.card_name).toContain("待确认");
+    expect(cards.find((card) => card.card_number === 7)?.review_status).toBe("AI草稿");
+    expect(cards.find((card) => card.card_number === 41)?.card_name).toBe("扩展牌41");
+    expect(cards.find((card) => card.card_number === 42)?.core_meaning).toContain("AI草稿占位");
+    cards.forEach((card) => {
+      expect(card.core_meaning.trim()).not.toBe("");
+      expect(card.person_image.trim()).not.toBe("");
+      expect(card.work.trim()).not.toBe("");
+      expect(card.love.trim()).not.toBe("");
+      expect(card.health.trim()).not.toBe("");
+      expect(card.money.trim()).not.toBe("");
+      expect(card.timing.trim()).not.toBe("");
+      expect(card.advice.trim()).not.toBe("");
+      expect(card.objects_places.trim()).not.toBe("");
+    });
   });
 
   it("stores review edits used by the admin card review page", () => {
@@ -164,5 +179,14 @@ describe("card profile review table", () => {
 
     expect(tree?.review_status).toBe("已确认");
     expect(tree?.quiz_answer).toBe("否。");
+  });
+
+  it("includes AI draft profiles in the knowledge context", () => {
+    listCardProfiles();
+    const context = buildKnowledgeContext();
+
+    expect(context).toContain("后台牌义校对台");
+    expect(context).toContain("AI草稿");
+    expect(context).toContain("扩展牌41");
   });
 });

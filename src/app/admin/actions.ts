@@ -272,7 +272,7 @@ export async function updateCardProfileAction(formData: FormData) {
 
 function sanitizeCardFilter(formData: FormData) {
   const filter = String(formData.get("returnFilter") || "pending");
-  return ["pending", "question", "confirmed", "unused", "all"].includes(filter)
+  return ["pending", "draft", "question", "confirmed", "unused", "all"].includes(filter)
     ? filter
     : "pending";
 }

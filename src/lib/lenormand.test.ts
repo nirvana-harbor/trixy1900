@@ -12,6 +12,8 @@ describe("lenormand card parsing", () => {
     expect(normalizeCardName("百合")).toBe("百合花");
     expect(normalizeCardName("37 灵体")).toBe("灵体");
     expect(normalizeCardName("39 床")).toBe("床");
+    expect(normalizeCardName("41")).toBe("扩展牌41");
+    expect(normalizeCardName("42 扩展牌42")).toBe("扩展牌42");
     expect(normalizeCardName("灵体牌")).toBe("灵体");
     expect(normalizeCardName("稍纵即逝")).toBe("即逝");
     expect(normalizeCardName("香爐")).toBe("香炉");

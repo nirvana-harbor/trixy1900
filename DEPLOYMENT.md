@@ -35,6 +35,13 @@ docker run -d \
 
 项目根目录已经包含 `render.yaml`，可以通过 Render Blueprint 创建公网网站。Render 的 Blueprint 文件需要放在 Git 仓库根目录；Render 官方文档说明 `render.yaml` 用于定义服务，Docker 服务使用 `runtime: docker`，持久化磁盘使用 `disk`，密钥类环境变量可以用 `sync: false` 让 Render 在创建时提示填写。
 
+当前正式公网服务：
+
+- URL：`https://acai-cosmic-station.onrender.com`
+- Render 部署分支：`codex/acai-cosmic-station`
+
+注意：当前仓库的 `main` 分支保留着旧项目历史，不作为这个站点的部署分支。Render 服务请指向 `codex/acai-cosmic-station`，避免把旧项目重新部署上去。
+
 部署步骤：
 
 1. 把本项目推送到 GitHub。

@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { AI_DRAFT_CARD_PROFILES, aiDraftByNumber } from "@/lib/card-profile-drafts";
 import { readDefaultCardProfiles } from "@/lib/card-profile-seed";
 import { todayKey } from "@/lib/dates";
 import { isPublishableOption, type LenormandCard } from "@/lib/lenormand";
@@ -196,6 +197,7 @@ function migrate(database: DatabaseSync) {
   ensureDailyReadingsColumns(database);
   ensureReadingOptionsSchema(database);
   seedCardProfiles(database);
+  ensureUsableCardProfiles(database);
 }
 
 function tableColumns(database: DatabaseSync, tableName: string) {
@@ -632,6 +634,126 @@ function seedCardProfiles(database: DatabaseSync) {
       profile.objectsPlaces,
       profile.reviewNotes
     );
+  });
+}
+
+function cardProfileHasCoreFields(profile: CardProfile) {
+  return [
+    profile.polarity,
+    profile.core_meaning,
+    profile.person_image,
+    profile.work,
+    profile.love,
+    profile.health,
+    profile.money,
+    profile.timing,
+    profile.advice,
+    profile.objects_places
+  ].every((value) => value.trim().length > 0 && !value.includes("待补充"));
+}
+
+function appendUniqueNote(existingNote: string, nextNote: string) {
+  return existingNote.includes(nextNote)
+    ? existingNote
+    : [existingNote, nextNote].filter(Boolean).join("\n");
+}
+
+function ensureUsableCardProfiles(database: DatabaseSync) {
+  const insertMissing = database.prepare(
+    `INSERT OR IGNORE INTO card_profiles (
+      card_number,
+      card_name,
+      review_status,
+      polarity,
+      core_meaning,
+      person_image,
+      work,
+      love,
+      health,
+      money,
+      timing,
+      advice,
+      objects_places,
+      review_notes
+    ) VALUES (?, ?, 'AI草稿', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  AI_DRAFT_CARD_PROFILES.forEach((draft) => {
+    insertMissing.run(
+      draft.cardNumber,
+      draft.cardName,
+      draft.polarity,
+      draft.coreMeaning,
+      draft.personImage,
+      draft.work,
+      draft.love,
+      draft.health,
+      draft.money,
+      draft.timing,
+      draft.advice,
+      draft.objectsPlaces,
+      "AI草稿：为先上线可用而自动补齐，后续可人工校对。"
+    );
+  });
+
+  const profiles = rows<CardProfile>(
+    database.prepare("SELECT * FROM card_profiles ORDER BY card_number").all()
+  );
+
+  profiles.forEach((profile) => {
+    if (profile.review_status === "已确认" || profile.review_status === "暂不使用") {
+      return;
+    }
+    if (profile.review_status === "AI草稿" && cardProfileHasCoreFields(profile)) {
+      return;
+    }
+
+    const draft = aiDraftByNumber(profile.card_number);
+    if (!draft) {
+      if (profile.review_status.includes("已确认")) {
+        database
+          .prepare(
+            "UPDATE card_profiles SET review_status = '已确认', updated_at = CURRENT_TIMESTAMP WHERE card_number = ?"
+          )
+          .run(profile.card_number);
+      }
+      return;
+    }
+
+    database
+      .prepare(
+        `UPDATE card_profiles
+          SET card_name = ?,
+              review_status = 'AI草稿',
+              polarity = ?,
+              core_meaning = ?,
+              person_image = ?,
+              work = ?,
+              love = ?,
+              health = ?,
+              money = ?,
+              timing = ?,
+              advice = ?,
+              objects_places = ?,
+              review_notes = ?,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE card_number = ?`
+      )
+      .run(
+        draft.cardName,
+        draft.polarity,
+        draft.coreMeaning,
+        draft.personImage,
+        draft.work,
+        draft.love,
+        draft.health,
+        draft.money,
+        draft.timing,
+        draft.advice,
+        draft.objectsPlaces,
+        appendUniqueNote(profile.review_notes, "AI草稿：为先上线可用而自动补齐，后续可人工校对。"),
+        profile.card_number
+      );
   });
 }
 
