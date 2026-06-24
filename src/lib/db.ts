@@ -32,6 +32,8 @@ export type ReadingOption = {
   cards_json: string;
   ai_draft_json: string | null;
   final_text: string;
+  indicator_text: string;
+  indicator_style: string;
   image_filename: string | null;
   image_mime_type: string | null;
   image_alt: string | null;
@@ -139,6 +141,8 @@ function migrate(database: DatabaseSync) {
       cards_json TEXT NOT NULL DEFAULT '[]',
       ai_draft_json TEXT,
       final_text TEXT NOT NULL DEFAULT '',
+      indicator_text TEXT NOT NULL DEFAULT '',
+      indicator_style TEXT NOT NULL DEFAULT '',
       image_filename TEXT,
       image_mime_type TEXT,
       image_alt TEXT,
@@ -228,6 +232,8 @@ function ensureReadingOptionsSchema(database: DatabaseSync) {
     !columns.includes("image_filename") ||
     !columns.includes("image_mime_type") ||
     !columns.includes("image_alt") ||
+    !columns.includes("indicator_text") ||
+    !columns.includes("indicator_style") ||
     !columns.includes("reviewed_at");
 
   if (!needsRebuild) {
@@ -237,6 +243,8 @@ function ensureReadingOptionsSchema(database: DatabaseSync) {
   const imageFilenameSelect = columns.includes("image_filename") ? "image_filename" : "NULL";
   const imageMimeTypeSelect = columns.includes("image_mime_type") ? "image_mime_type" : "NULL";
   const imageAltSelect = columns.includes("image_alt") ? "image_alt" : "NULL";
+  const indicatorTextSelect = columns.includes("indicator_text") ? "indicator_text" : "''";
+  const indicatorStyleSelect = columns.includes("indicator_style") ? "indicator_style" : "''";
   const reviewedAtSelect = columns.includes("reviewed_at") ? "reviewed_at" : "NULL";
 
   database.exec(`
@@ -250,6 +258,8 @@ function ensureReadingOptionsSchema(database: DatabaseSync) {
       cards_json TEXT NOT NULL DEFAULT '[]',
       ai_draft_json TEXT,
       final_text TEXT NOT NULL DEFAULT '',
+      indicator_text TEXT NOT NULL DEFAULT '',
+      indicator_style TEXT NOT NULL DEFAULT '',
       image_filename TEXT,
       image_mime_type TEXT,
       image_alt TEXT,
@@ -268,6 +278,8 @@ function ensureReadingOptionsSchema(database: DatabaseSync) {
       cards_json,
       ai_draft_json,
       final_text,
+      indicator_text,
+      indicator_style,
       image_filename,
       image_mime_type,
       image_alt,
@@ -283,6 +295,8 @@ function ensureReadingOptionsSchema(database: DatabaseSync) {
       cards_json,
       ai_draft_json,
       final_text,
+      ${indicatorTextSelect},
+      ${indicatorStyleSelect},
       ${imageFilenameSelect},
       ${imageMimeTypeSelect},
       ${imageAltSelect},
@@ -407,7 +421,7 @@ export function setReadingTopic(date: string, topic: string) {
       "UPDATE topic_suggestions SET selected_topic = ? WHERE suggestion_date = ? AND id = (SELECT id FROM topic_suggestions WHERE suggestion_date = ? ORDER BY id DESC LIMIT 1)"
     )
     .run(topic, date, date);
-  clearOptionReviews(database, date);
+  clearOptionDrafts(database, date);
 }
 
 export function setReadingOptionCount(date: string, optionCount: number) {
@@ -463,6 +477,21 @@ function clearOptionReviews(database: DatabaseSync, date: string) {
     .run(date);
 }
 
+function clearOptionDrafts(database: DatabaseSync, date: string) {
+  database
+    .prepare(
+      `UPDATE reading_options
+        SET indicator_text = '',
+            indicator_style = '',
+            ai_draft_json = NULL,
+            final_text = '',
+            reviewed_at = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE reading_date = ?`
+    )
+    .run(date);
+}
+
 export function updateReadingOption(params: {
   date: string;
   optionKey: OptionKey;
@@ -501,6 +530,36 @@ export function updateReadingOption(params: {
       params.date,
       params.optionKey
     );
+  setReadingDraft(database, params.date);
+}
+
+export function saveReadingIndicators(params: {
+  date: string;
+  style: string;
+  indicators: Array<{ optionKey: OptionKey; text: string }>;
+}) {
+  const reading = ensureReading(params.date);
+  const allowedKeys = new Set(reading.options.map((option) => option.option_key));
+  const database = getDb();
+  const update = database.prepare(
+    `UPDATE reading_options
+      SET indicator_text = ?,
+          indicator_style = ?,
+          ai_draft_json = NULL,
+          final_text = '',
+          reviewed_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE reading_date = ? AND option_key = ?`
+  );
+
+  params.indicators.forEach((indicator) => {
+    const text = indicator.text.trim();
+    if (!allowedKeys.has(indicator.optionKey) || !text) {
+      return;
+    }
+    update.run(text, params.style, params.date, indicator.optionKey);
+  });
+
   setReadingDraft(database, params.date);
 }
 

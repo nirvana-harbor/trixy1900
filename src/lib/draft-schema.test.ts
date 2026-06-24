@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readingDraftSchema } from "@/lib/draft-schema";
+import { indicatorSuggestionSchema, readingDraftSchema } from "@/lib/draft-schema";
 
 describe("reading draft schema", () => {
   it("validates the AI draft wire shape", () => {
@@ -15,5 +15,19 @@ describe("reading draft schema", () => {
     });
 
     expect(parsed.title).toBe("A 组");
+  });
+
+  it("validates the option indicator wire shape", () => {
+    const parsed = indicatorSuggestionSchema.parse({
+      style: "意象短句",
+      tone: "像梦里闪过的画面",
+      indicators: [
+        { optionKey: "A", text: "雾散前，先听见远处的铃声" },
+        { optionKey: "B", text: "一束光落在还没拆封的信上" },
+        { optionKey: "C", text: "旧门轻响，风把答案翻到下一页" }
+      ]
+    });
+
+    expect(parsed.indicators).toHaveLength(3);
   });
 });

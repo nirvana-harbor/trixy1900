@@ -10,6 +10,7 @@ import {
   markReadingOptionReviewed,
   publishReading,
   resetDbForTests,
+  saveReadingIndicators,
   setReadingOptionCount,
   setReadingTopic,
   unpublishReading,
@@ -112,6 +113,62 @@ describe("reading publication flow", () => {
       "C",
       "D"
     ]);
+  });
+
+  it("stores text indicators and keeps them when cards are edited", () => {
+    const date = "2026-06-02";
+    ensureReading(date);
+    setReadingTopic(date, "谁正在悄悄想念你？");
+
+    saveReadingIndicators({
+      date,
+      style: "意象短句 · 像梦里闪过的画面",
+      indicators: [
+        { optionKey: "A", text: "雾散前，先听见远处的铃声" },
+        { optionKey: "B", text: "一束光落在还没拆封的信上" },
+        { optionKey: "C", text: "旧门轻响，风把答案翻到下一页" }
+      ]
+    });
+
+    expect(getReading(date)?.options.find((option) => option.option_key === "A")?.indicator_text).toBe(
+      "雾散前，先听见远处的铃声"
+    );
+
+    updateReadingOption({
+      date,
+      optionKey: "A",
+      optionTitle: "A 组选项",
+      cards: ["骑士", "心", "戒指"],
+      finalText: "A 组完整解析。"
+    });
+
+    expect(getReading(date)?.options.find((option) => option.option_key === "A")?.indicator_text).toBe(
+      "雾散前，先听见远处的铃声"
+    );
+  });
+
+  it("clears stale final text when indicators are regenerated", () => {
+    const date = "2026-06-03";
+    ensureReading(date);
+    setReadingTopic(date, "近期有什么新的机会？");
+    updateReadingOption({
+      date,
+      optionKey: "A",
+      optionTitle: "A 组选项",
+      cards: ["骑士", "四叶草", "鱼"],
+      finalText: "这是一段旧解析。"
+    });
+
+    saveReadingIndicators({
+      date,
+      style: "物品场景 · 带一点日常感的神秘物件",
+      indicators: [{ optionKey: "A", text: "一把夹在旧笔记里的银色钥匙" }]
+    });
+
+    const option = getReading(date)?.options.find((item) => item.option_key === "A");
+    expect(option?.indicator_text).toBe("一把夹在旧笔记里的银色钥匙");
+    expect(option?.final_text).toBe("");
+    expect(option?.ai_draft_json).toBeNull();
   });
 });
 

@@ -12,6 +12,7 @@ import {
   Trash2
 } from "lucide-react";
 import {
+  generateIndicatorsAction,
   generateTopicsAction,
   logoutAction,
   optionFormAction,
@@ -64,6 +65,7 @@ export default async function AdminPage({
   const topics = suggestions ? (JSON.parse(suggestions.suggestions_json) as string[]) : [];
   const published = reading.status === "published";
   const topicRequests = listTopicRequests(8);
+  const hasIndicators = reading.options.every((option) => option.indicator_text.trim().length > 0);
 
   return (
     <main className="shell py-8">
@@ -134,6 +136,34 @@ export default async function AdminPage({
           </button>
         </form>
 
+        <div className="rounded-lg border border-[var(--line)] bg-white/5 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-[var(--muted)]">今日文字指示物</p>
+              <p className="mt-1 text-sm leading-7 text-[var(--muted)]">
+                选定主题后会自动生成；不满意可以重新生成。重新生成会清空旧解析草稿，避免旧文案误发布。
+              </p>
+            </div>
+            <form action={generateIndicatorsAction}>
+              <button className="button secondary" type="submit" disabled={!reading.topic.trim()}>
+                <RefreshCw size={18} />
+                {hasIndicators ? "重新生成指示物" : "生成指示物"}
+              </button>
+            </form>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {reading.options.map((option) => (
+              <article key={option.option_key} className="admin-text-indicator">
+                <span className="text-xs font-black text-[var(--jade)]">{option.option_key} 组</span>
+                <p>{option.indicator_text || "等待生成"}</p>
+                {option.indicator_style ? (
+                  <span className="text-xs text-[var(--muted)]">{option.indicator_style}</span>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </div>
+
         {topics.length > 0 ? (
           <div className="grid gap-3">
             {topics.map((topic) => (
@@ -193,51 +223,63 @@ export default async function AdminPage({
               <span className="label">选项标题</span>
               <input className="field" name="optionTitle" defaultValue={option.option_title} />
             </label>
-            <div className="grid gap-4 md:grid-cols-[180px_1fr]">
-              <div>
-                <span className="label">当前指示物</span>
-                {option.image_filename ? (
-                  <span className="admin-option-image">
-                    <Image
-                      src={optionImageSrc(date, option.option_key)}
-                      alt={option.image_alt || `${option.option_key} 组指示物`}
-                      fill
-                      sizes="180px"
-                      unoptimized
-                    />
-                  </span>
-                ) : (
-                  <div className="admin-option-image-empty">
-                    <span className="card-back h-24 w-16" aria-hidden="true" />
-                  </div>
-                )}
-              </div>
-              <div className="grid content-start gap-3">
-                <label>
-                  <span className="label">上传/替换指示物图片（JPG、PNG、WEBP，最大 5MB）</span>
-                  <input
-                    className="field"
-                    name="indicatorImage"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                  />
-                </label>
-                <label>
-                  <span className="label">图片描述（可选，用于无障碍说明）</span>
-                  <input
-                    className="field"
-                    name="imageAlt"
-                    defaultValue={option.image_alt || `${option.option_key} 组指示物`}
-                  />
-                </label>
-                {option.image_filename ? (
-                  <label className="flex items-center gap-2 text-sm font-bold text-[var(--muted)]">
-                    <input type="checkbox" name="deleteImage" value="1" />
-                    删除当前指示物图片
-                  </label>
-                ) : null}
-              </div>
+            <div className="admin-text-indicator">
+              <span className="text-xs font-black text-[var(--jade)]">文字指示物</span>
+              <p>{option.indicator_text || "尚未生成。确认主题后会自动生成，也可以在上方手动重新生成。"}</p>
+              {option.indicator_style ? (
+                <span className="text-xs text-[var(--muted)]">{option.indicator_style}</span>
+              ) : null}
             </div>
+            <details className="rounded-lg border border-[var(--line)] bg-white/5 p-4">
+              <summary className="cursor-pointer text-sm font-black text-[var(--muted)]">
+                图片指示物（可选，旧稿兼容）
+              </summary>
+              <div className="mt-4 grid gap-4 md:grid-cols-[180px_1fr]">
+                <div>
+                  <span className="label">当前图片指示物</span>
+                  {option.image_filename ? (
+                    <span className="admin-option-image">
+                      <Image
+                        src={optionImageSrc(date, option.option_key)}
+                        alt={option.image_alt || `${option.option_key} 组指示物`}
+                        fill
+                        sizes="180px"
+                        unoptimized
+                      />
+                    </span>
+                  ) : (
+                    <div className="admin-option-image-empty">
+                      <span className="card-back h-24 w-16" aria-hidden="true" />
+                    </div>
+                  )}
+                </div>
+                <div className="grid content-start gap-3">
+                  <label>
+                    <span className="label">上传/替换指示物图片（JPG、PNG、WEBP，最大 5MB）</span>
+                    <input
+                      className="field"
+                      name="indicatorImage"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                    />
+                  </label>
+                  <label>
+                    <span className="label">图片描述（可选，用于无障碍说明）</span>
+                    <input
+                      className="field"
+                      name="imageAlt"
+                      defaultValue={option.image_alt || `${option.option_key} 组指示物`}
+                    />
+                  </label>
+                  {option.image_filename ? (
+                    <label className="flex items-center gap-2 text-sm font-bold text-[var(--muted)]">
+                      <input type="checkbox" name="deleteImage" value="1" />
+                      删除当前指示物图片
+                    </label>
+                  ) : null}
+                </div>
+              </div>
+            </details>
             <label>
               <span className="label">牌面，每行一张或用逗号分隔，支持 1-9 张</span>
               <textarea className="field min-h-28" name="cards" defaultValue={cardsText(option.cards_json)} />

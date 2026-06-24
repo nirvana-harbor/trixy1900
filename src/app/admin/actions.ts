@@ -12,6 +12,7 @@ import {
   markReadingOptionReviewed,
   publishReading,
   saveOptionDraft,
+  saveReadingIndicators,
   saveTopicSuggestions,
   setReadingOptionCount,
   setReadingTopic,
@@ -19,7 +20,7 @@ import {
   updateCardProfile,
   updateReadingOption
 } from "@/lib/db";
-import { generateReadingDraft, generateTopicSuggestions } from "@/lib/ai";
+import { generateOptionIndicators, generateReadingDraft, generateTopicSuggestions } from "@/lib/ai";
 import { parseCardsInput } from "@/lib/lenormand";
 import { deleteOptionImage, hasUploadedImage, saveOptionImage } from "@/lib/option-images";
 import { isOptionKey } from "@/lib/options";
@@ -38,6 +39,30 @@ function optionKeyFromForm(formData: FormData) {
     throw new Error("无效的选项。");
   }
   return value;
+}
+
+async function generateAndSaveIndicators(date: string) {
+  const reading = ensureReading(date);
+  if (!reading.topic.trim()) {
+    throw new Error("生成指示物前需要先选择今日主题。");
+  }
+
+  const indicatorSet = await generateOptionIndicators({
+    topic: reading.topic,
+    optionKeys: reading.options.map((option) => option.option_key)
+  });
+
+  saveReadingIndicators({
+    date,
+    style: `${indicatorSet.style} · ${indicatorSet.tone}`,
+    indicators: indicatorSet.indicators.flatMap((indicator) =>
+      isOptionKey(indicator.optionKey)
+        ? [{ optionKey: indicator.optionKey, text: indicator.text }]
+        : []
+    )
+  });
+
+  return indicatorSet;
 }
 
 export async function loginAction(formData: FormData) {
@@ -70,14 +95,37 @@ export async function generateTopicsAction() {
 
 export async function selectTopicAction(formData: FormData) {
   await requireAdmin();
+  const date = todayKey();
   const topic = String(formData.get("topic") || "").trim();
   if (!topic) {
     adminRedirect("/admin", "请选择一个主题。");
   }
-  setReadingTopic(todayKey(), topic);
+  setReadingTopic(date, topic);
+  let message = "今日主题已更新，指示物已自动生成。";
+  try {
+    await generateAndSaveIndicators(date);
+  } catch (error) {
+    message = `今日主题已更新，但指示物生成失败：${
+      error instanceof Error ? error.message : "请稍后点击重新生成。"
+    }`;
+  }
   revalidatePath("/admin");
   revalidatePath("/");
-  adminRedirect("/admin", "今日主题已更新。");
+  adminRedirect("/admin", message);
+}
+
+export async function generateIndicatorsAction() {
+  await requireAdmin();
+  const date = todayKey();
+  try {
+    await generateAndSaveIndicators(date);
+    revalidatePath("/admin");
+    revalidatePath("/");
+    revalidatePath("/archive");
+    adminRedirect("/admin", "今日指示物已重新生成。");
+  } catch (error) {
+    adminRedirect("/admin", error instanceof Error ? error.message : "生成指示物失败。");
+  }
 }
 
 export async function setOptionCountAction(formData: FormData) {
@@ -171,6 +219,8 @@ export async function optionFormAction(formData: FormData) {
         topic: reading.topic,
         optionKey,
         optionTitle,
+        indicatorText:
+          reading.options.find((option) => option.option_key === optionKey)?.indicator_text || "",
         cards: parsed.cards,
         knowledgeContext: buildKnowledgeContext()
       });

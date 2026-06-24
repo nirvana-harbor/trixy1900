@@ -365,6 +365,44 @@ select {
   object-fit: cover;
 }
 
+.option-text-indicator {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 150px;
+  place-items: center;
+  padding: 18px;
+  background:
+    linear-gradient(150deg, rgba(215, 200, 255, 0.2), transparent 46%),
+    linear-gradient(35deg, rgba(143, 241, 223, 0.13), rgba(255, 155, 204, 0.1)),
+    rgba(255, 249, 255, 0.06);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.75;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.admin-text-indicator {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(215, 200, 255, 0.28);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(143, 241, 223, 0.08), rgba(255, 155, 204, 0.08)),
+    rgba(255, 249, 255, 0.05);
+  padding: 14px;
+}
+
+.admin-text-indicator p {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
 .admin-option-image {
   width: 100%;
   object-fit: cover;

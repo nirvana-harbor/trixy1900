@@ -1,12 +1,16 @@
 import OpenAI from "openai";
 import {
+  indicatorSuggestionJsonSchema,
+  indicatorSuggestionSchema,
   readingDraftJsonSchema,
   readingDraftSchema,
   topicSuggestionJsonSchema,
   topicSuggestionSchema,
+  type IndicatorSuggestion,
   type ReadingDraft
 } from "@/lib/draft-schema";
 import type { LenormandCard } from "@/lib/lenormand";
+import type { OptionKey } from "@/lib/options";
 
 function client() {
   if (!process.env.OPENAI_API_KEY) {
@@ -69,10 +73,125 @@ export async function generateTopicSuggestions() {
   return parsed.topics;
 }
 
+function topicSeed(topic: string) {
+  return Array.from(topic).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
+
+function fallbackIndicators(topic: string, optionKeys: OptionKey[]): IndicatorSuggestion {
+  const sets = [
+    {
+      style: "物品场景" as const,
+      tone: "带一点日常感的神秘物件",
+      texts: [
+        "一把夹在旧笔记里的银色钥匙",
+        "窗台上刚冒新芽的多肉植物",
+        "深夜还亮着灯的小办公室",
+        "被雨水打湿的一张车票"
+      ]
+    },
+    {
+      style: "冷笑话" as const,
+      tone: "轻松、无厘头，但留一点共鸣空间",
+      texts: [
+        "今天不想内耗，想把烦恼外包给月亮",
+        "心动不是电量低，但也该充一充自己",
+        "别急着破防，先看看宇宙有没有售后",
+        "好运还在路上，可能是导航绕远了"
+      ]
+    },
+    {
+      style: "意象短句" as const,
+      tone: "像梦里闪过的画面",
+      texts: [
+        "雾散前，先听见远处的铃声",
+        "一束光落在还没拆封的信上",
+        "旧门轻响，风把答案翻到下一页",
+        "潮水退后，石阶露出新的方向"
+      ]
+    }
+  ];
+  const set = sets[topicSeed(topic) % sets.length];
+  return {
+    style: set.style,
+    tone: set.tone,
+    indicators: optionKeys.map((optionKey, index) => ({
+      optionKey,
+      text: set.texts[index] || set.texts[index % set.texts.length]
+    }))
+  };
+}
+
+function normalizeIndicatorSuggestion(
+  suggestion: IndicatorSuggestion,
+  topic: string,
+  optionKeys: OptionKey[]
+): IndicatorSuggestion {
+  const fallback = fallbackIndicators(topic, optionKeys);
+  const byKey = new Map(
+    suggestion.indicators.map((indicator) => [
+      indicator.optionKey,
+      indicator.text.trim()
+    ])
+  );
+
+  return {
+    style: suggestion.style || fallback.style,
+    tone: suggestion.tone || fallback.tone,
+    indicators: optionKeys.map((optionKey, index) => ({
+      optionKey,
+      text: byKey.get(optionKey) || fallback.indicators[index]?.text || fallback.indicators[0].text
+    }))
+  };
+}
+
+export async function generateOptionIndicators(params: {
+  topic: string;
+  optionKeys: OptionKey[];
+}): Promise<IndicatorSuggestion> {
+  const openai = client();
+  if (!openai) {
+    return fallbackIndicators(params.topic, params.optionKeys);
+  }
+
+  const response = await openai.responses.create({
+    model: model(),
+    input: [
+      {
+        role: "system",
+        content:
+          "你是中文大众占卜的指示物策划。你要为同一个每日占卜主题生成一组文字指示物，用来帮助用户凭直觉选择 A/B/C/D。指示物要轻盈、有画面感、有区分度，不能像答案提示。"
+      },
+      {
+        role: "user",
+        content: [
+          `今日主题：${params.topic}`,
+          `需要生成的选项：${params.optionKeys.join("、")}`,
+          "请只选择一种统一风格：物品场景、冷笑话、意象短句。",
+          "每个选项生成 1 条文字指示物，彼此不要太像，要和主题有隐约呼应，但不要把结论说死。",
+          "文字长度建议 8-28 个中文字符；冷笑话可以稍长，但保持轻松好玩。",
+          "只返回结构化 JSON。"
+        ].join("\n\n")
+      }
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "option_indicators",
+        strict: true,
+        schema: indicatorSuggestionJsonSchema
+      }
+    }
+  } as Parameters<typeof openai.responses.create>[0]);
+
+  const parsed = indicatorSuggestionSchema.parse(JSON.parse(parseOutputText(response)));
+  return normalizeIndicatorSuggestion(parsed, params.topic, params.optionKeys);
+}
+
 export async function generateReadingDraft(params: {
   topic: string;
   optionKey: string;
   optionTitle: string;
+  indicatorText?: string;
   cards: LenormandCard[];
   knowledgeContext: string;
 }): Promise<ReadingDraft> {
@@ -82,7 +201,7 @@ export async function generateReadingDraft(params: {
     return {
       title: `${params.optionKey} 组：${params.topic}`,
       coreConclusion: "这是一个本地占位草稿。填入 OPENAI_API_KEY 后，系统会根据你的知识库生成完整解析。",
-      cardLogic: `本组选项牌面为：${cards}。请结合你的牌义体系补充牌与牌之间的主线、修饰和转折。`,
+      cardLogic: `本组选项指示物为：${params.indicatorText || "未设置"}；牌面为：${cards}。请结合你的牌义体系补充牌与牌之间的主线、修饰和转折。`,
       love: "情感层面先保留为人工润色区。",
       career: "事业与资源层面先保留为人工润色区。",
       advice: "建议先把你的牌义、组合规则和风格样例补进 docs/knowledge 或后台知识库。",
@@ -104,8 +223,9 @@ export async function generateReadingDraft(params: {
         content: [
           `今日主题：${params.topic}`,
           `选项：${params.optionKey} / ${params.optionTitle || params.optionKey + " 组选项"}`,
+          `文字指示物：${params.indicatorText || "未设置"}`,
           `牌面：${params.cards.join("、")}`,
-          "请生成一组 600-900 中文字左右的大众占卜解析。",
+          "请生成一组 600-900 中文字左右的大众占卜解析。解析时要同时参考文字指示物和牌面：指示物负责提供入口意象、情绪基调或现实场景，牌面负责判断主线、阻力、转机和建议。",
           "结构要包含：开场共鸣、牌面逻辑、当前状态、情感/事业或现实层面的提醒、行动建议和一句收束提醒。",
           "不要恐吓，不要绝对化承诺，不要给医疗、法律、投资等高风险建议。",
           "知识库如下：",

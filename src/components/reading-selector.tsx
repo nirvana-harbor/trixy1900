@@ -7,6 +7,8 @@ type PublicOption = {
   option_title: string;
   cards_json?: string;
   final_text: string;
+  indicator_text?: string;
+  indicator_style?: string;
   image_filename?: string | null;
   image_src?: string | null;
   image_alt?: string | null;
@@ -52,6 +54,7 @@ export function ReadingSelector({ options }: { options: PublicOption[] }) {
       >
         {options.map((option) => {
           const imageSrc = optionImageSrc(option);
+          const indicatorText = option.indicator_text?.trim();
           return (
             <label
               key={option.option_key}
@@ -71,6 +74,8 @@ export function ReadingSelector({ options }: { options: PublicOption[] }) {
                     sizes="(min-width: 640px) 25vw, 100vw"
                     unoptimized
                   />
+                ) : indicatorText ? (
+                  <span className="option-text-indicator">{indicatorText}</span>
                 ) : (
                   <span className="card-back h-24 w-16" aria-hidden="true" />
                 )}
@@ -94,6 +99,11 @@ export function ReadingSelector({ options }: { options: PublicOption[] }) {
               </span>
               <h2 className="text-xl font-black">{option.option_title}</h2>
             </div>
+            {option.indicator_text ? (
+              <p className="mb-5 rounded-lg border border-[var(--line)] bg-white/5 p-4 text-sm leading-7 text-[var(--muted)]">
+                指示物：{option.indicator_text}
+              </p>
+            ) : null}
             <p className="reading-text text-[15px] sm:text-base">{option.final_text}</p>
           </article>
         ))}
